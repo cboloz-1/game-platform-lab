@@ -1,5 +1,5 @@
 import json
-from time import time
+from time import sleep, time
 from urllib import request
 from uuid import uuid4
 from random import choice
@@ -27,24 +27,27 @@ def create_event():
     "timestamp": int(time())
 }
 
-event = create_event()
+while True:
+    event = create_event()
 
-# Converts 'event' dictionary to JSON and encodes it to bytes
-event_json = json.dumps(event).encode("utf-8")
+    # Converts 'event' dictionary to JSON and encodes it to bytes
+    event_json = json.dumps(event).encode("utf-8")
 
-# Creates an HTTP POST request with the event JSON as the body and appropriate headers
-http_request = request.Request(
-    API_URL,
-    data=event_json,
-    headers={"Content-Type": "application/json"},
-    method="POST"
-)
+    # Creates an HTTP POST request with the event JSON as the body and appropriate headers
+    http_request = request.Request(
+        API_URL,
+        data=event_json,
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
 
-# request.urlopen() sends the HTTP request and returns a response object. 
-# The 'with' statement ensures that the response is properly closed after reading.
-with request.urlopen(http_request) as response:
-    response_body = response.read().decode("utf-8")
+    # request.urlopen() sends the HTTP request and returns a response object. 
+    # The 'with' statement ensures that the response is properly closed after reading.
+    with request.urlopen(http_request) as response:
+        response_body = response.read().decode("utf-8")
 
-    # Prints the HTTP status code and the response body
-    print(f"Status: {response.status}")
-    print(f"Response: {response_body}")
+        # Prints the HTTP status code and the response body
+        print(f"Status: {response.status}")
+        print(f"Response: {response_body}")
+
+    sleep(2)  # Waits for 2 seconds before generating the next event
