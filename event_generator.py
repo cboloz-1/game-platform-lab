@@ -1,16 +1,28 @@
 import json
 from time import time
 from urllib import request
+from uuid import uuid4
+from random import choice
 
 API_URL = "http://localhost:8080/events"
 
-# manual event generation for testing purposes
-event = {
-    "event_id": "event-001",
+EVENT_TYPES = [
+    "match_start",
+    "match_finished",
+    "login",
+    "logout",
+]
+
+# creates a fresh event when this function is called
+def create_event():
+    return {
+    "event_id": str(uuid4()), # generates a unique identifier for the event
     "player_id": "player-1",
-    "event_type": "login",
-    "timestamp": int(time.time())
+    "event_type": choice(EVENT_TYPES),
+    "timestamp": int(time())
 }
+
+event = create_event()
 
 # Converts 'event' dictionary to JSON and encodes it to bytes
 event_json = json.dumps(event).encode("utf-8")
