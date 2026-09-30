@@ -13,12 +13,17 @@ EVENT_TYPES = [
     "logout",
 ]
 
+PLAYER_IDS = [
+    "player-1",
+    "player-2",
+    "player-3",
+]
 # creates a fresh event when this function is called
 def create_event():
     return {
     "event_id": str(uuid4()), # generates a unique identifier for the event
-    "player_id": "player-1",
-    "event_type": choice(EVENT_TYPES),
+    "player_id": choice(PLAYER_IDS), # randomly selects a player ID from the PLAYER_IDS list
+    "event_type": choice(EVENT_TYPES), # randomly selects an event type from the EVENT_TYPES list
     "timestamp": int(time())
 }
 
