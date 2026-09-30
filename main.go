@@ -1,12 +1,17 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 const eventQueueSize = 100
@@ -23,6 +28,37 @@ type GameEvent struct {
 }
 
 func main() {
+
+	// Load environment variables from .env file for database connection
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+
+	dbname := os.Getenv("POSTGRES_DB")
+	user := os.Getenv("POSTGRES_USER")
+	password := os.Getenv("POSTGRES_PASSWORD")
+	host := os.Getenv("POSTGRES_HOST")
+	port := os.Getenv("POSTGRES_PORT")
+	sslmode := os.Getenv("SSL_MODE")
+
+	// the connection string for PostgreSQL
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		host, port, user, password, dbname, sslmode)
+
+	// Open a connection to the PostgreSQL database
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatalf("Failed to connect to the database: %v", err)
+	}
+	defer db.Close()
+
+	// Test the
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Failed to ping the database: %v", err)
+	}
+
+	log.Println("Successfully connected to the database.")
+
 	// Load the New York time zone once when the server starts.
 	location, err := time.LoadLocation("America/New_York")
 	if err != nil {
