@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -31,7 +35,7 @@ func main() {
 
 	// Load environment variables from .env file for database connection
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		log.Fatalf("No .env file found: %v", err)
 	}
 
 	dbname := os.Getenv("POSTGRES_DB")
@@ -52,12 +56,47 @@ func main() {
 	}
 	defer db.Close()
 
-	// Test the
+	// Test the database connection
 	if err := db.Ping(); err != nil {
 		log.Fatalf("Failed to ping the database: %v", err)
 	}
 
 	log.Println("Successfully connected to the database.")
+
+	// Create a new database driver for migrations
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		log.Fatalf("Failed to create database driver: %v", err)
+	}
+
+	// Create a new migration instance
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://./cmd/migrate/migrations",
+		"postgres",
+		driver,
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Determine the command from the last argument
+	cmd := os.Args[len(os.Args)-1]
+	if cmd == "up" {
+		// Apply all up migrations
+		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			log.Fatalf("Migration up failed: %v", err)
+		}
+		fmt.Println("Database migration up completed successfully.")
+	}
+
+	if cmd == "down" {
+		// Apply all down migrations
+		if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			log.Fatalf("Migration down failed: %v", err)
+		}
+		fmt.Println("Database migration down completed successfully.")
+	}
 
 	// Load the New York time zone once when the server starts.
 	location, err := time.LoadLocation("America/New_York")
