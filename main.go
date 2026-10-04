@@ -88,6 +88,7 @@ func main() {
 			log.Fatalf("Migration up failed: %v", err)
 		}
 		fmt.Println("Database migration up completed successfully.")
+		return
 	}
 
 	if cmd == "down" {
@@ -96,6 +97,7 @@ func main() {
 			log.Fatalf("Migration down failed: %v", err)
 		}
 		fmt.Println("Database migration down completed successfully.")
+		return
 	}
 
 	// Load the New York time zone once when the server starts.
