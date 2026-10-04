@@ -108,7 +108,7 @@ func main() {
 
 	// Create a queue so requests are accepted quickly and processed in order.
 	eventQueue = make(chan GameEvent, eventQueueSize)
-	go processEvents(eventQueue, location)
+	go processEvents(eventQueue, db, location)
 
 	http.HandleFunc("/events", getEventsHandler)
 	fmt.Println("Server is running on port 8080...")
@@ -158,14 +158,28 @@ func getEventsHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(`{"status":"success","message":"Event received"}`))
 }
 
-func processEvents(eventQueue <-chan GameEvent, location *time.Location) {
+func processEvents(eventQueue <-chan GameEvent, db *sql.DB, location *time.Location) {
 	// Read and process events one at a time from the queue.
 	for event := range eventQueue {
-		processEvent(event, location)
+		processEvent(event, db, location)
 	}
 }
 
-func processEvent(event GameEvent, location *time.Location) {
+func processEvent(event GameEvent, db *sql.DB, location *time.Location) {
+	// Insert the event into the database.
+	_, err := db.Exec(
+		`INSERT INTO events (event_id, player_id, event_type, client_timestamp, server_timestamp) VALUES ($1, $2, $3, $4, $5)`,
+		event.EventID,
+		event.PlayerID,
+		event.EventType,
+		event.ClientTimestamp,
+		event.ServerTimestamp,
+	)
+	if err != nil {
+		log.Printf("Failed to insert event [%s] for player [%s]: %v", event.EventID, event.PlayerID, err)
+		return
+	}
+
 	// Simulate downstream processing
 	time.Sleep(2 * time.Second)
 
