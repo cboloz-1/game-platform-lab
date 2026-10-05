@@ -110,7 +110,9 @@ func main() {
 	eventQueue = make(chan GameEvent, eventQueueSize)
 	go processEvents(eventQueue, db, location)
 
-	http.HandleFunc("/events", getEventsHandler)
+	http.HandleFunc("/events", func(w http.ResponseWriter, r *http.Request) {
+		getEventsHandler(w, r, db)
+	})
 	fmt.Println("Server is running on port 8080...")
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
@@ -119,7 +121,7 @@ func main() {
 }
 
 // getEventsHandler accepts incoming game events.
-func getEventsHandler(w http.ResponseWriter, r *http.Request) {
+func getEventsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	// Ensure clients send POST requests.
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -143,18 +145,23 @@ func getEventsHandler(w http.ResponseWriter, r *http.Request) {
 	// Save the server's receive time in UTC, the standard format for server logs.
 	event.ServerTimestamp = time.Now().UTC()
 
-	// Add the event without making the HTTP response wait for processing.
-	// If the queue is full, report that the server is temporarily overloaded.
-	select {
-	case eventQueue <- event:
-	default:
-		http.Error(w, "Service unavailable: event queue is full", http.StatusServiceUnavailable)
+	// Insert the event into the database immediately to ensure it is saved before responding to the client
+	_, err = db.Exec(
+		`INSERT INTO events (event_id, player_id, event_type, client_timestamp, server_timestamp) VALUES ($1, $2, $3, $4, $5)`,
+		event.EventID,
+		event.PlayerID,
+		event.EventType,
+		event.ClientTimestamp,
+		event.ServerTimestamp,
+	)
+	if err != nil {
+		http.Error(w, "Service unavailable: unable to save event", http.StatusServiceUnavailable)
 		return
 	}
 
-	// Respond immediately after the event has been safely placed in the queue.
+	// Respond after the event has been saved to the database
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
+	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(`{"status":"success","message":"Event received"}`))
 }
 
