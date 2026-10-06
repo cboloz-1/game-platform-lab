@@ -165,6 +165,42 @@ func getEventsHandler(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	_, _ = w.Write([]byte(`{"status":"success","message":"Event received"}`))
 }
 
+func getNextEvent(db *sql.DB) (GameEvent, bool, error) {
+	var event GameEvent
+
+	// SQL statement to atomically select and update the next pending event
+	err := db.QueryRow(`
+	UPDATE events
+	SET status = 'processing',
+		attempt_count = attempt_count + 1,
+	WHERE event_id = (
+		SELECT event_id FROM events
+		WHERE status = 'pending'
+		ORDER BY 
+			AND (next_attempt_at IS NULL OR next_attempt_at <= NOW())
+		ORDER BY server_timestamp ASC
+		LIMIT 1
+		FOR UPDATE SKIP LOCKED
+	)
+	RETURNING event_id, player_id, event_type, client_timestamp, server_timestamp
+	`).Scan(
+		// Scan the returned row into the event struct
+		&event.EventID,
+		&event.PlayerID,
+		&event.EventType,
+		&event.ClientTimestamp,
+		&event.ServerTimestamp)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return GameEvent{}, false, nil // No pending events
+	}
+	if err != nil {
+		return GameEvent{}, false, fmt.Errorf("claim next event: %w", err)
+	}
+
+	return event, true, nil
+}
+
 func processEvents(eventQueue <-chan GameEvent, db *sql.DB, location *time.Location) {
 	// Read and process events one at a time from the queue.
 	for event := range eventQueue {
